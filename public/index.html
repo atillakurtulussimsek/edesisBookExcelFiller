@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>edesis Kitap Excel Doldurucu</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1><a href="#" id="homeLink">edesis Kitap Excel Doldurucu</a></h1>
+  </header>
+
+  <main id="app">
+    <section id="homeView" hidden>
+      <div class="card">
+        <h2>Yeni Excel Yükle</h2>
+        <form id="uploadForm">
+          <input type="file" id="excelFile" accept=".xlsx" required>
+          <button type="submit" class="primary">Yükle ve Başla</button>
+        </form>
+      </div>
+      <div class="card">
+        <h2>Devam Eden Kitaplar</h2>
+        <div id="sessionList" class="list"></div>
+      </div>
+    </section>
+
+    <section id="sessionView" hidden>
+      <div class="card header-card">
+        <div>
+          <h2 id="kitapAdi"></h2>
+          <div class="meta">
+            <span>ISBN: <b id="isbn"></b></span>
+            <span>Yayınevi: <b id="yayinevi"></b></span>
+            <span>Kitap ID: <b id="kitapId"></b></span>
+          </div>
+        </div>
+        <div class="actions">
+          <button id="downloadBtn">Excel İndir</button>
+          <button id="completeBtn" class="danger">Tamamla</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2 id="formTitle">Test Ekle</h2>
+        <form id="testForm" autocomplete="off">
+          <div class="grid">
+            <label class="span2">
+              <span>Konu <small id="konuInfo"></small></span>
+              <div class="row">
+                <select id="sinifFilter"><option value="">Tüm sınıflar</option></select>
+                <div class="combo" id="konuCombo">
+                  <input type="text" id="konuInput" placeholder="Konu ara (kod veya ad)…" required>
+                  <input type="hidden" id="konuKodu">
+                  <ul class="dropdown" hidden></ul>
+                </div>
+              </div>
+            </label>
+            <label class="span2">
+              <span>Konu Adı (Kitap)</span>
+              <input type="text" id="konuAdiKitap" placeholder="Kitaptaki konu adı">
+            </label>
+            <label>
+              <span>Test ID (Test No)</span>
+              <input type="number" id="testId" min="0" step="1">
+            </label>
+            <label>
+              <span>Soru Sayısı</span>
+              <input type="number" id="soruSayisi" min="1" step="1" required>
+            </label>
+            <label class="span2">
+              <span>Test Türü</span>
+              <div class="combo" id="turCombo">
+                <input type="text" id="turInput" placeholder="Test türü ara…" required>
+                <input type="hidden" id="testTuru">
+                <ul class="dropdown" hidden></ul>
+              </div>
+            </label>
+            <label class="span2">
+              <span>Cevaplar <small id="cevapSayac"></small></span>
+              <input type="text" id="cevaplar" class="mono" placeholder="ABCDE…" required>
+            </label>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="primary" id="submitBtn">Ekle</button>
+            <button type="button" id="cancelEditBtn" hidden>Vazgeç</button>
+            <span id="formError" class="error"></span>
+          </div>
+        </form>
+      </div>
+
+      <div class="card">
+        <h2>Eklenen Testler <small id="testCount"></small></h2>
+        <div class="table-wrap">
+          <table id="testTable">
+            <thead>
+              <tr>
+                <th>#</th><th>Konu Kodu</th><th>Konu (UKS)</th><th>Konu (Kitap)</th>
+                <th>Test ID</th><th>Soru</th><th>Tür</th><th>Cevaplar</th><th></th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" hidden></div>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,28 @@
+{
+  "name": "edesis-book-excel-filler",
+  "version": "1.0.0",
+  "description": "edesis kitap Excel şablonunu form ile dolduran lokal web aracı",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/atillakurtulussimsek/edesisBookExcelFiller.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/atillakurtulussimsek/edesisBookExcelFiller/issues"
+  },
+  "homepage": "https://github.com/atillakurtulussimsek/edesisBookExcelFiller#readme",
+  "dependencies": {
+    "exceljs": "^4.4.0",
+    "express": "^5.2.1",
+    "jszip": "^3.10.2",
+    "multer": "^2.4.0"
+  }
+}
