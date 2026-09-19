@@ -362,7 +362,8 @@ $('testForm').addEventListener('submit', async (e) => {
       state.session = await apiJson(`/api/sessions/${id}/tests`, 'POST', payload);
       toast(`Test eklendi (${state.session.tests.length})`);
       resetForm(false);
-      $('testId').focus();
+      $('konuAdiKitap').focus();
+      $('konuAdiKitap').select();
     }
     renderTests();
   } catch (err) {
