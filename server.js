@@ -10,6 +10,7 @@ const { analyzeImages } = require('./lib/analyze');
 const sessions = require('./lib/sessions');
 const queue = require('./lib/queue');
 const { suggestKonular } = require('./lib/konu');
+const { validateTest } = require('./lib/validate');
 const crypto = require('crypto');
 
 const PORT = process.env.PORT || 3000;
@@ -50,35 +51,6 @@ app.get('/api/events', (req, res) => {
   const ping = setInterval(() => res.write(': ping\n\n'), 25000);
   req.on('close', () => { clearInterval(ping); sseClients.delete(res); });
 });
-
-function validateTest(body, tpl) {
-  const errors = [];
-  const konuKodu = Number(body.konuKodu);
-  if (!Number.isFinite(konuKodu) || !tpl.konular.some((k) => k.kod === konuKodu)) {
-    errors.push('Konu listeden seçilmeli');
-  }
-  const testId = body.testId === '' || body.testId === undefined || body.testId === null ? '' : Number(body.testId);
-  if (testId !== '' && !Number.isFinite(testId)) errors.push('Test ID sayı olmalı');
-  const soruSayisi = Number(body.soruSayisi);
-  if (!Number.isInteger(soruSayisi) || soruSayisi < 1) errors.push('Soru sayısı 1 veya daha büyük tam sayı olmalı');
-  const testTuru = String(body.testTuru ?? '').trim();
-  if (!tpl.testTurleri.some((t) => t.ad === testTuru)) errors.push('Test türü listeden seçilmeli');
-  const cevaplar = String(body.cevaplar ?? '').replace(/\s+/g, '').toUpperCase();
-  if (!/^[ABCDE]+$/.test(cevaplar)) errors.push('Cevaplar yalnızca A-E harflerinden oluşmalı');
-  else if (cevaplar.length !== soruSayisi) {
-    errors.push(`Cevap sayısı (${cevaplar.length}) soru sayısı (${soruSayisi}) ile eşit olmalı`);
-  }
-  const konuAdiKitap = String(body.konuAdiKitap ?? '').trim();
-  if (errors.length) return { errors };
-  const konu = tpl.konular.find((k) => k.kod === konuKodu);
-  return {
-    test: { konuKodu, konuAdiUks: konu.ad, konuAdiKitap, testId, soruSayisi, testTuru, cevaplar },
-  };
-}
-
-function safeFileName(name) {
-  return name.replace(/[\\/:*?"<>|]/g, '_');
-}
 
 async function generateExcel(session) {
   await fs.mkdir(OUTPUT_DIR, { recursive: true });
@@ -185,7 +157,7 @@ app.post('/api/sessions/:id/analyze', upload.array('images', 10), wrap(async (re
   });
 }));
 
-app.post('/api/sessions/:id/jobs', upload.array('images', 10), wrap(async (req, res) => {
+app.post('/api/sessions/:id/jobs', upload.array('images', 10), wrap((req, res) => sessions.withSessionLock(req.params.id, async () => {
   const session = await sessions.getSession(req.params.id);
   if (!session) return res.status(404).json({ error: 'Oturum bulunamadı' });
   if (!req.files || !req.files.length) return res.status(400).json({ error: 'En az bir görsel gerekli' });
@@ -207,9 +179,9 @@ app.post('/api/sessions/:id/jobs', upload.array('images', 10), wrap(async (req, 
   broadcast('session', { sessionId: session.id, session });
   queue.enqueue(session.id, job.id);
   res.json({ job, session });
-}));
+})));
 
-app.post('/api/sessions/:id/jobs/:jobId/approve', wrap(async (req, res) => {
+app.post('/api/sessions/:id/jobs/:jobId/approve', wrap((req, res) => sessions.withSessionLock(req.params.id, async () => {
   const session = await sessions.getSession(req.params.id);
   if (!session) return res.status(404).json({ error: 'Oturum bulunamadı' });
   const jobs = session.jobs || [];
@@ -232,9 +204,10 @@ app.post('/api/sessions/:id/jobs/:jobId/approve', wrap(async (req, res) => {
   await queue.deleteJobImages(job);
   broadcast('session', { sessionId: session.id, session });
   res.json(session);
-}));
+  queue.autoApprove(session.id).catch((e) => console.error('[oto-onay]', e.message));
+})));
 
-app.delete('/api/sessions/:id/jobs/:jobId', wrap(async (req, res) => {
+app.delete('/api/sessions/:id/jobs/:jobId', wrap((req, res) => sessions.withSessionLock(req.params.id, async () => {
   const session = await sessions.getSession(req.params.id);
   if (!session) return res.status(404).json({ error: 'Oturum bulunamadı' });
   const job = (session.jobs || []).find((j) => j.id === req.params.jobId);
@@ -244,9 +217,10 @@ app.delete('/api/sessions/:id/jobs/:jobId', wrap(async (req, res) => {
   await queue.deleteJobImages(job);
   broadcast('session', { sessionId: session.id, session });
   res.json(session);
-}));
+  queue.autoApprove(session.id).catch((e) => console.error('[oto-onay]', e.message));
+})));
 
-app.post('/api/sessions/:id/jobs/:jobId/retry', wrap(async (req, res) => {
+app.post('/api/sessions/:id/jobs/:jobId/retry', wrap((req, res) => sessions.withSessionLock(req.params.id, async () => {
   const session = await sessions.getSession(req.params.id);
   if (!session) return res.status(404).json({ error: 'Oturum bulunamadı' });
   const job = (session.jobs || []).find((j) => j.id === req.params.jobId);
@@ -257,7 +231,7 @@ app.post('/api/sessions/:id/jobs/:jobId/retry', wrap(async (req, res) => {
   broadcast('session', { sessionId: session.id, session });
   queue.enqueue(session.id, job.id);
   res.json(session);
-}));
+})));
 
 app.post('/api/sessions/:id/complete', wrap(async (req, res) => {
   const session = await sessions.getSession(req.params.id);

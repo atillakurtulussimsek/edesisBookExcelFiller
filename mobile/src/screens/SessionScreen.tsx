@@ -131,6 +131,7 @@ export function SessionScreen({ id, onBack, onNewTest, onReview, reloadKey }: Pr
                         {j.status === 'ready' && j.tests[0]?.konuAdi ? ` · ${j.tests[0].konuAdi}` : ''}
                       </Text>
                       <JobStatus job={j} />
+                      {j.otoRed ? <Text style={type.caption}>Manuel onay: {j.otoRed}</Text> : null}
                     </View>
                     {j.status === 'error' ? (
                       <Button title="Tekrar" size="sm" kind="secondary" onPress={() => retryJob(j)} />
@@ -175,6 +176,7 @@ export function SessionScreen({ id, onBack, onNewTest, onReview, reloadKey }: Pr
             <View style={[s.row, { gap: 8 }]}>
               <Chip text={t.testTuru} />
               <Chip text={`${t.soruSayisi} soru`} tone="accent" />
+              {t.otomatik ? <Chip text={`Otomatik · %${t.puan ?? ''}`} tone="success" icon="flash-outline" /> : null}
             </View>
             <AnswerGrid answers={t.cevaplar} />
           </View>
@@ -191,7 +193,13 @@ function JobStatus({ job }: { job: Job }) {
   if (job.status === 'queued') return <Chip text="Sırada" icon="time-outline" />;
   if (job.status === 'analyzing') return <Chip text="Analiz ediliyor" tone="warn" icon="hourglass-outline" />;
   if (job.status === 'error') return <Chip text="Hata" tone="warn" icon="alert-circle-outline" />;
-  return <Chip text={`Hazır · ${job.tests[0]?.cevaplar.length ?? 0} soru`} tone="success" icon="checkmark-circle-outline" />;
+  const puan = job.tests[0]?.puan;
+  return (
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+      <Chip text={`Hazır · ${job.tests[0]?.cevaplar.length ?? 0} soru`} tone="success" icon="checkmark-circle-outline" />
+      {puan !== undefined ? <Chip text={`%${puan}`} tone={puan >= 90 ? 'success' : 'warn'} icon="speedometer-outline" /> : null}
+    </View>
+  );
 }
 
 function Stat({ value, label, accent }: { value: string; label: string; accent?: boolean }) {

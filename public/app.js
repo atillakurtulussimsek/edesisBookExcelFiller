@@ -245,7 +245,7 @@ function renderTests() {
       <td>${t.testId === '' ? '' : t.testId}</td>
       <td>${t.soruSayisi}</td>
       <td>${escapeHtml(t.testTuru)}</td>
-      <td class="mono">${t.cevaplar}</td>
+      <td class="mono">${t.cevaplar}${t.otomatik ? ` <span class="badge" title="Otomatik onaylandı, puan %${t.puan ?? ''}">oto</span>` : ''}</td>
       <td><div class="btns">
         <button class="small" data-act="down" data-i="${i}" ${i === tests.length - 1 ? 'disabled' : ''} title="Yukarı taşı">↑</button>
         <button class="small" data-act="up" data-i="${i}" ${i === 0 ? 'disabled' : ''} title="Aşağı taşı">↓</button>

@@ -113,6 +113,9 @@ export function ReviewScreen({ detail, job, onDone }: Props) {
                 <Text style={type.heading}>{drafts.length > 1 ? `${i + 1}. Test` : 'Test bilgileri'}</Text>
                 {done ? <Chip text="Eklendi" tone="success" icon="checkmark" /> : <Chip text={`${d.cevaplar.length} soru`} tone="accent" />}
               </View>
+              {analyzed[i]?.puan !== undefined ? (
+                <Notice tone={(analyzed[i].puan ?? 0) >= 90 ? 'success' : 'warn'} text={`Doğruluk puanı %${analyzed[i].puan}${analyzed[i].nedenler?.length ? ` · ${analyzed[i].nedenler!.join(', ')}` : ''}`} />
+              ) : null}
               {d.not ? <Notice tone="warn" text={d.not} /> : null}
 
               <SelectField

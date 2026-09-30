@@ -19,6 +19,8 @@ export type Test = {
   soruSayisi: number;
   testTuru: string;
   cevaplar: string;
+  otomatik?: boolean;
+  puan?: number;
 };
 
 export type Job = {
@@ -28,6 +30,7 @@ export type Job = {
   pageCount: number;
   tests: AnalyzedTest[];
   error: string;
+  otoRed?: string;
   createdAt: string;
 };
 
@@ -49,6 +52,10 @@ export type AnalyzedTest = {
   konuAdi: string;
   cevaplar: string;
   not: string;
+  guven?: number;
+  puan?: number;
+  konuSkor?: number;
+  nedenler?: string[];
   konuOnerileri: Konu[];
 };
 
