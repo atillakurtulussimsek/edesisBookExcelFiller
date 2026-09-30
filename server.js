@@ -1,9 +1,12 @@
+require('dotenv').config();
 const express = require('express');
+const os = require('os');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs/promises');
 const { readTemplate } = require('./lib/template');
 const { writeExcel } = require('./lib/writer');
+const { analyzeImage } = require('./lib/analyze');
 const sessions = require('./lib/sessions');
 
 const PORT = process.env.PORT || 3000;
@@ -39,6 +42,27 @@ function validateTest(body, tpl) {
   return {
     test: { konuKodu, konuAdiUks: konu.ad, konuAdiKitap, testId, soruSayisi, testTuru, cevaplar },
   };
+}
+
+const trLower = (s) => String(s ?? '').toLocaleLowerCase('tr');
+
+function suggestKonular(konular, text, limit = 5) {
+  const q = trLower(text).trim();
+  if (!q) return [];
+  const words = q.split(/[^a-zçğıöşü0-9]+/).filter((w) => w.length > 2);
+  return konular
+    .map((k) => {
+      const ad = trLower(k.ad);
+      let score = 0;
+      if (ad === q) score += 100;
+      else if (ad.includes(q) || q.includes(ad)) score += 50;
+      for (const w of words) if (ad.includes(w)) score += 10;
+      return { konu: k, score };
+    })
+    .filter((x) => x.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
+    .map((x) => x.konu);
 }
 
 function safeFileName(name) {
@@ -134,6 +158,17 @@ app.get('/api/sessions/:id/excel', wrap(async (req, res) => {
   res.download(outPath, path.basename(outPath));
 }));
 
+app.post('/api/sessions/:id/analyze', upload.single('image'), wrap(async (req, res) => {
+  const session = await sessions.getSession(req.params.id);
+  if (!session) return res.status(404).json({ error: 'Oturum bulunamadı' });
+  if (!req.file) return res.status(400).json({ error: 'Görsel gerekli' });
+  const tpl = await readTemplate(session.templatePath);
+  const tests = await analyzeImage(req.file.buffer, req.file.mimetype);
+  res.json({
+    tests: tests.map((t) => ({ ...t, konuOnerileri: suggestKonular(tpl.konular, t.konuAdi) })),
+  });
+}));
+
 app.post('/api/sessions/:id/complete', wrap(async (req, res) => {
   const session = await sessions.getSession(req.params.id);
   if (!session) return res.status(404).json({ error: 'Oturum bulunamadı' });
@@ -153,6 +188,11 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: err.message || 'Sunucu hatası' });
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`edesis Excel Filler: http://localhost:${PORT}`);
+  for (const list of Object.values(os.networkInterfaces())) {
+    for (const ni of list || []) {
+      if (ni.family === 'IPv4' && !ni.internal) console.log(`  Telefon için: http://${ni.address}:${PORT}`);
+    }
+  }
 });

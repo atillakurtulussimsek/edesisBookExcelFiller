@@ -20,9 +20,11 @@
   },
   "homepage": "https://github.com/atillakurtulussimsek/edesisBookExcelFiller#readme",
   "dependencies": {
+    "dotenv": "^18.0.4",
     "exceljs": "^4.4.0",
     "express": "^5.2.1",
     "jszip": "^3.10.2",
-    "multer": "^2.4.0"
+    "multer": "^2.4.0",
+    "openai": "^7.25.0"
   }
 }
