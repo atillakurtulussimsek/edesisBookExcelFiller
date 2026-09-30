@@ -7,6 +7,8 @@ export type SessionSummary = {
   sourceFileName: string;
   header: Header;
   testCount: number;
+  jobCount?: number;
+  readyCount?: number;
 };
 
 export type Test = {
@@ -19,11 +21,22 @@ export type Test = {
   cevaplar: string;
 };
 
+export type Job = {
+  id: string;
+  order: number;
+  status: 'queued' | 'analyzing' | 'ready' | 'error';
+  pageCount: number;
+  tests: AnalyzedTest[];
+  error: string;
+  createdAt: string;
+};
+
 export type Session = {
   id: string;
   sourceFileName: string;
   header: Header;
   tests: Test[];
+  jobs?: Job[];
 };
 
 export type Konu = { sinif: string; ders: string; kod: number; ad: string };

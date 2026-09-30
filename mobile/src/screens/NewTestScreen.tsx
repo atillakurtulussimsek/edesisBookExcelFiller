@@ -5,22 +5,24 @@ import React, { useState } from 'react';
 import { Alert, Image, Pressable, ScrollView, Text, View } from 'react-native';
 import { api } from '../api';
 import { Button } from '../components/Button';
-import { Notice, ScreenHeader } from '../components/ui';
+import { Chip, Notice, ScreenHeader } from '../components/ui';
 import { colors, s, type } from '../theme';
-import type { AnalyzedTest, SessionDetail } from '../types';
+import type { Job, SessionDetail } from '../types';
 
 type Props = {
   detail: SessionDetail;
   onBack: () => void;
-  onAnalyzed: (tests: AnalyzedTest[]) => void;
+  onSubmitted: (jobs: Job[]) => void;
 };
 
 const MAX_PAGES = 10;
 
-export function NewTestScreen({ detail, onBack, onAnalyzed }: Props) {
+export function NewTestScreen({ detail, onBack, onSubmitted }: Props) {
   const [pages, setPages] = useState<string[]>([]);
-  const [analyzing, setAnalyzing] = useState(false);
+  const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
+  const [sentCount, setSentCount] = useState(0);
+  const [jobs, setJobs] = useState<Job[]>(detail.session.jobs ?? []);
 
   async function pick(fromCamera: boolean) {
     const perm = fromCamera
@@ -49,36 +51,49 @@ export function NewTestScreen({ detail, onBack, onAnalyzed }: Props) {
     setPages((p) => p.filter((_, j) => j !== i));
   }
 
-  async function analyze() {
+  async function submit() {
     if (!pages.length) return;
-    setAnalyzing(true);
+    setSending(true);
     setError('');
     const t0 = Date.now();
-    console.log(`[analiz] ${pages.length} sayfa gönderiliyor…`);
     try {
-      const { tests } = await api.analyze(detail.session.id, pages);
-      console.log(`[analiz] yanıt geldi: ${tests.length} test (${Date.now() - t0} ms)`, JSON.stringify(tests));
-      if (!tests.length) {
-        Alert.alert('Test bulunamadı', 'Sayfalarda okunabilir test bilgisi bulunamadı. Daha net bir fotoğraf dene.');
-        return;
-      }
-      onAnalyzed(tests);
+      const { job, session } = await api.submitJob(detail.session.id, pages);
+      console.log(`[kuyruk] iş ${job.order} gönderildi (${Date.now() - t0} ms)`);
+      setJobs(session.jobs ?? []);
+      setSentCount((n) => n + 1);
+      setPages([]);
     } catch (e: any) {
-      console.log(`[analiz] HATA (${Date.now() - t0} ms):`, e.message);
+      console.log(`[kuyruk] HATA (${Date.now() - t0} ms):`, e.message);
       setError(e.message);
     } finally {
-      setAnalyzing(false);
+      setSending(false);
     }
   }
 
-  const canAdd = !analyzing && pages.length < MAX_PAGES;
+  const canAdd = !sending && pages.length < MAX_PAGES;
+  const waiting = jobs.filter((j) => j.status === 'queued' || j.status === 'analyzing').length;
+  const ready = jobs.filter((j) => j.status === 'ready').length;
 
   return (
     <View style={{ flex: 1 }}>
       <ScrollView contentContainerStyle={[s.content, { paddingTop: 0 }]}>
         <View style={{ marginHorizontal: -20 }}>
-          <ScreenHeader title="Yeni Test" subtitle="Testin tüm sayfalarını sırayla çek: başlık, sorular, cevap anahtarı" onBack={analyzing ? undefined : onBack} />
+          <ScreenHeader
+            title="Yeni Test"
+            subtitle="Sayfaları çek, gönder, sıradaki teste geç. Analiz arka planda yapılır."
+            onBack={() => onSubmitted(jobs)}
+            right={
+              jobs.length ? (
+                <View style={[s.row, { gap: 6 }]}>
+                  {waiting ? <Chip text={`${waiting} analizde`} tone="warn" icon="hourglass-outline" /> : null}
+                  {ready ? <Chip text={`${ready} hazır`} tone="success" icon="checkmark-circle-outline" /> : null}
+                </View>
+              ) : undefined
+            }
+          />
         </View>
+
+        {sentCount ? <Notice tone="success" text={`${sentCount} test analize gönderildi. Sıradaki testin sayfalarını çekebilirsin.`} /> : null}
 
         <View style={[s.row, { gap: 12 }]}>
           <Button title="Sayfa Çek" kind="primary" icon="camera" onPress={() => pick(true)} disabled={!canAdd} style={{ flex: 1 }} />
@@ -98,7 +113,7 @@ export function NewTestScreen({ detail, onBack, onAnalyzed }: Props) {
                 <View style={{ position: 'absolute', top: 6, left: 6, backgroundColor: colors.text, paddingHorizontal: 8, height: 22, borderRadius: 11, justifyContent: 'center' }}>
                   <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>{i + 1}</Text>
                 </View>
-                <Pressable onPress={() => removePage(i)} disabled={analyzing} hitSlop={8} style={{ position: 'absolute', top: 4, right: 4, width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.9)', alignItems: 'center', justifyContent: 'center' }}>
+                <Pressable onPress={() => removePage(i)} disabled={sending} hitSlop={8} style={{ position: 'absolute', top: 4, right: 4, width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.9)', alignItems: 'center', justifyContent: 'center' }}>
                   <Ionicons name="close" size={16} color={colors.text} />
                 </Pressable>
               </View>
@@ -113,16 +128,15 @@ export function NewTestScreen({ detail, onBack, onAnalyzed }: Props) {
         </View>
 
         {error ? <Notice tone="error" text={error} /> : null}
-        {analyzing ? <Notice tone="warn" text="Sayfalar yapay zeka ile okunuyor, birkaç saniye sürer…" /> : null}
       </ScrollView>
       <View style={s.bottomBar}>
         <Button
-          title={pages.length ? `Analiz Et · ${pages.length} sayfa` : 'Önce sayfa çek'}
+          title={pages.length ? `Analize Gönder · ${pages.length} sayfa` : 'Önce sayfa çek'}
           kind="primary"
           size="lg"
-          icon="sparkles"
-          onPress={analyze}
-          loading={analyzing}
+          icon="cloud-upload-outline"
+          onPress={submit}
+          loading={sending}
           disabled={!pages.length}
         />
       </View>

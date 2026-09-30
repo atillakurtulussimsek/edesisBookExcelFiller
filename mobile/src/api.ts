@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { File } from 'expo-file-system';
-import type { AnalyzedTest, Session, SessionDetail, SessionSummary, TestPayload } from './types';
+import type { AnalyzedTest, Job, Session, SessionDetail, SessionSummary, TestPayload } from './types';
 
 const BASE_URL_KEY = 'serverBaseUrl';
 const LAST_TUR_KEY = 'lastTestTuru';
@@ -52,6 +52,15 @@ export const api = {
   getSession: (id: string) => request<SessionDetail>(`/api/sessions/${id}`),
   addTest: (id: string, payload: TestPayload) => request<Session>(`/api/sessions/${id}/tests`, json('POST', payload)),
   deleteTest: (id: string, index: number) => request<Session>(`/api/sessions/${id}/tests/${index}`, { method: 'DELETE' }),
+  submitJob: async (id: string, uris: string[]): Promise<{ job: Job; session: Session }> => {
+    const form = new FormData();
+    uris.forEach((uri, i) => form.append('images', new File(uri), `sayfa-${i + 1}.jpg`));
+    return request(`/api/sessions/${id}/jobs`, { method: 'POST', body: form });
+  },
+  approveJob: (id: string, jobId: string, tests: TestPayload[]) =>
+    request<Session>(`/api/sessions/${id}/jobs/${jobId}/approve`, json('POST', { tests })),
+  deleteJob: (id: string, jobId: string) => request<Session>(`/api/sessions/${id}/jobs/${jobId}`, { method: 'DELETE' }),
+  retryJob: (id: string, jobId: string) => request<Session>(`/api/sessions/${id}/jobs/${jobId}/retry`, { method: 'POST' }),
   analyze: async (id: string, uris: string[]): Promise<{ tests: AnalyzedTest[] }> => {
     const form = new FormData();
     uris.forEach((uri, i) => form.append('images', new File(uri), `sayfa-${i + 1}.jpg`));

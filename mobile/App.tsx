@@ -9,7 +9,7 @@ import { SessionScreen } from './src/screens/SessionScreen';
 import { SessionsScreen } from './src/screens/SessionsScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
 import { colors, s } from './src/theme';
-import type { AnalyzedTest, SessionDetail } from './src/types';
+import type { Job, SessionDetail } from './src/types';
 
 type Route =
   | { name: 'loading' }
@@ -17,7 +17,7 @@ type Route =
   | { name: 'sessions' }
   | { name: 'session'; id: string; reloadKey: number }
   | { name: 'newTest'; id: string; detail: SessionDetail; reloadKey: number }
-  | { name: 'review'; id: string; detail: SessionDetail; analyzed: AnalyzedTest[]; reloadKey: number };
+  | { name: 'review'; id: string; detail: SessionDetail; job: Job; reloadKey: number };
 
 export default function App() {
   const [route, setRoute] = useState<Route>({ name: 'loading' });
@@ -59,6 +59,7 @@ export default function App() {
           reloadKey={route.reloadKey}
           onBack={() => setRoute({ name: 'sessions' })}
           onNewTest={(detail) => setRoute({ name: 'newTest', id: route.id, detail, reloadKey: route.reloadKey })}
+          onReview={(detail, job) => setRoute({ name: 'review', id: route.id, detail, job, reloadKey: route.reloadKey })}
         />
       );
       break;
@@ -66,8 +67,8 @@ export default function App() {
       screen = (
         <NewTestScreen
           detail={route.detail}
-          onBack={() => setRoute({ name: 'session', id: route.id, reloadKey: route.reloadKey })}
-          onAnalyzed={(analyzed) => setRoute({ name: 'review', id: route.id, detail: route.detail, analyzed, reloadKey: route.reloadKey })}
+          onBack={() => setRoute({ name: 'session', id: route.id, reloadKey: route.reloadKey + 1 })}
+          onSubmitted={() => setRoute({ name: 'session', id: route.id, reloadKey: route.reloadKey + 1 })}
         />
       );
       break;
@@ -75,8 +76,8 @@ export default function App() {
       screen = (
         <ReviewScreen
           detail={route.detail}
-          analyzed={route.analyzed}
-          onDone={() => setRoute({ name: 'newTest', id: route.id, detail: route.detail, reloadKey: route.reloadKey + 1 })}
+          job={route.job}
+          onDone={() => setRoute({ name: 'session', id: route.id, reloadKey: route.reloadKey + 1 })}
         />
       );
       break;

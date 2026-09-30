@@ -6,7 +6,7 @@ import { Button } from '../components/Button';
 import { PickerItem, SearchPicker } from '../components/SearchPicker';
 import { AnswerGrid, Chip, Field, Notice, ScreenHeader, SelectField } from '../components/ui';
 import { colors, s, type } from '../theme';
-import type { AnalyzedTest, Konu, SessionDetail } from '../types';
+import type { Job, Konu, SessionDetail } from '../types';
 
 type Draft = {
   konu: Konu | null;
@@ -20,11 +20,12 @@ type Draft = {
   error: string;
 };
 
-type Props = { detail: SessionDetail; analyzed: AnalyzedTest[]; onDone: () => void };
+type Props = { detail: SessionDetail; job: Job; onDone: () => void };
 
 const konuItem = (k: Konu): PickerItem => ({ key: String(k.kod), title: `${k.kod} · ${k.ad}`, subtitle: `${k.sinif}. sınıf · ${k.ders}` });
 
-export function ReviewScreen({ detail, analyzed, onDone }: Props) {
+export function ReviewScreen({ detail, job, onDone }: Props) {
+  const analyzed = job.tests;
   const [drafts, setDrafts] = useState<Draft[]>(() =>
     analyzed.map((t) => ({
       konu: t.konuOnerileri[0] ?? null,
@@ -50,31 +51,42 @@ export function ReviewScreen({ detail, analyzed, onDone }: Props) {
     setDrafts((ds) => ds.map((d, j) => (j === i ? { ...d, ...patch } : d)));
   }
 
-  async function save(i: number) {
-    const d = drafts[i];
-    if (!d.konu) return update(i, { error: 'Konu seçilmeli' });
-    if (!d.testTuru) return update(i, { error: 'Test türü seçilmeli' });
-    if (!d.cevaplar) return update(i, { error: 'Cevap anahtarı boş' });
-    update(i, { status: 'saving', error: '' });
+  const [approving, setApproving] = useState(false);
+  const [approveError, setApproveError] = useState('');
+
+  async function approveAll() {
+    let ok = true;
+    setDrafts((ds) => ds.map((d) => {
+      const err = !d.konu ? 'Konu seçilmeli' : !d.testTuru ? 'Test türü seçilmeli' : !d.cevaplar ? 'Cevap anahtarı boş' : '';
+      if (err) ok = false;
+      return { ...d, error: err };
+    }));
+    if (!ok) return;
+    setApproving(true);
+    setApproveError('');
     try {
-      await api.addTest(detail.session.id, {
-        konuKodu: d.konu.kod,
-        konuAdiKitap: d.konuAdiKitap,
-        testId: d.testId === '' ? '' : Number(d.testId),
-        soruSayisi: d.cevaplar.length,
-        testTuru: d.testTuru,
-        cevaplar: d.cevaplar,
-      });
-      await saveLastTestTuru(d.testTuru);
-      update(i, { status: 'done' });
+      await api.approveJob(
+        detail.session.id,
+        job.id,
+        drafts.map((d) => ({
+          konuKodu: d.konu!.kod,
+          konuAdiKitap: d.konuAdiKitap,
+          testId: d.testId === '' ? '' : Number(d.testId),
+          soruSayisi: d.cevaplar.length,
+          testTuru: d.testTuru,
+          cevaplar: d.cevaplar,
+        })),
+      );
+      if (drafts[0]?.testTuru) await saveLastTestTuru(drafts[0].testTuru);
+      setDrafts((ds) => ds.map((d) => ({ ...d, status: 'done' })));
+      onDone();
     } catch (e: any) {
-      update(i, { status: 'error', error: e.message });
+      setApproveError(e.message);
+    } finally {
+      setApproving(false);
     }
   }
 
-  const doneCount = drafts.filter((d) => d.status === 'done').length;
-  const allDone = doneCount === drafts.length;
-  const pendingIndex = drafts.findIndex((d) => d.status !== 'done');
   const konuItems = useMemo(() => detail.konular.map(konuItem), [detail.konular]);
   const turItems = useMemo(() => detail.testTurleri.map((t) => ({ key: t.ad, title: t.ad })), [detail.testTurleri]);
   const suggestionItems = useMemo(
@@ -87,20 +99,11 @@ export function ReviewScreen({ detail, analyzed, onDone }: Props) {
       <ScrollView contentContainerStyle={[s.content, { paddingTop: 0 }]} keyboardShouldPersistTaps="handled">
         <View style={{ marginHorizontal: -20 }}>
           <ScreenHeader
-            title={drafts.length === 1 ? 'Okunan Test' : `${drafts.length} Test Okundu`}
-            subtitle="Bilgileri kontrol et, gerekirse düzelt, sonra ekle"
+            title={`${job.order}. Gönderim`}
+            subtitle={drafts.length === 1 ? 'Okunan testi kontrol et, gerekirse düzelt, onayla' : `${drafts.length} test okundu; kontrol et ve onayla`}
+            onBack={onDone}
           />
         </View>
-
-        {allDone ? (
-          <View style={[s.card, { alignItems: 'center', gap: 8, paddingVertical: 32, backgroundColor: colors.successSoft, shadowOpacity: 0 }]}>
-            <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: colors.success, alignItems: 'center', justifyContent: 'center' }}>
-              <Ionicons name="checkmark" size={36} color="#fff" />
-            </View>
-            <Text style={type.heading}>{doneCount === 1 ? 'Test eklendi' : `${doneCount} test eklendi`}</Text>
-            <Text style={[type.body, { textAlign: 'center' }]}>Kitaba kaydedildi. Sıradaki testin sayfalarını çekebilirsin.</Text>
-          </View>
-        ) : null}
 
         {drafts.map((d, i) => {
           const done = d.status === 'done';
@@ -142,25 +145,21 @@ export function ReviewScreen({ detail, analyzed, onDone }: Props) {
               {d.cevaplar ? <AnswerGrid answers={d.cevaplar} /> : null}
 
               {d.error ? <Notice tone="error" text={d.error} /> : null}
-              {!done && drafts.length > 1 ? (
-                <Button title="Bu testi ekle" kind="secondary" icon="add" onPress={() => save(i)} loading={d.status === 'saving'} />
-              ) : null}
             </View>
           );
         })}
       </ScrollView>
 
       <View style={s.bottomBar}>
-        {allDone ? (
-          <Button title="Sıradaki Test" kind="primary" size="lg" icon="camera" onPress={onDone} />
-        ) : drafts.length === 1 ? (
-          <Button title="Kitaba Ekle" kind="primary" size="lg" icon="checkmark" onPress={() => save(0)} loading={drafts[0].status === 'saving'} />
-        ) : (
-          <View style={[s.row, { gap: 12 }]}>
-            <Button title="Vazgeç" kind="ghost" size="lg" onPress={onDone} />
-            <Button title={`Eksikleri Ekle (${drafts.length - doneCount})`} kind="primary" size="lg" icon="checkmark" onPress={() => pendingIndex >= 0 && save(pendingIndex)} style={{ flex: 1 }} />
-          </View>
-        )}
+        {approveError ? <View style={{ marginBottom: 8 }}><Notice tone="error" text={approveError} /></View> : null}
+        <Button
+          title={drafts.length === 1 ? 'Onayla ve Kitaba Ekle' : `${drafts.length} Testi Onayla`}
+          kind="primary"
+          size="lg"
+          icon="checkmark"
+          onPress={approveAll}
+          loading={approving}
+        />
       </View>
 
       <SearchPicker

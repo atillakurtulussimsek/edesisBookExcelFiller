@@ -8,6 +8,9 @@ const { readTemplate } = require('./lib/template');
 const { writeExcel } = require('./lib/writer');
 const { analyzeImages } = require('./lib/analyze');
 const sessions = require('./lib/sessions');
+const queue = require('./lib/queue');
+const { suggestKonular } = require('./lib/konu');
+const crypto = require('crypto');
 
 const PORT = process.env.PORT || 3000;
 const OUTPUT_DIR = path.join(__dirname, 'output');
@@ -71,27 +74,6 @@ function validateTest(body, tpl) {
   return {
     test: { konuKodu, konuAdiUks: konu.ad, konuAdiKitap, testId, soruSayisi, testTuru, cevaplar },
   };
-}
-
-const trLower = (s) => String(s ?? '').toLocaleLowerCase('tr');
-
-function suggestKonular(konular, text, limit = 5) {
-  const q = trLower(text).trim();
-  if (!q) return [];
-  const words = q.split(/[^a-zçğıöşü0-9]+/).filter((w) => w.length > 2);
-  return konular
-    .map((k) => {
-      const ad = trLower(k.ad);
-      let score = 0;
-      if (ad === q) score += 100;
-      else if (ad.includes(q) || q.includes(ad)) score += 50;
-      for (const w of words) if (ad.includes(w)) score += 10;
-      return { konu: k, score };
-    })
-    .filter((x) => x.score > 0)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, limit)
-    .map((x) => x.konu);
 }
 
 function safeFileName(name) {
@@ -203,16 +185,93 @@ app.post('/api/sessions/:id/analyze', upload.array('images', 10), wrap(async (re
   });
 }));
 
+app.post('/api/sessions/:id/jobs', upload.array('images', 10), wrap(async (req, res) => {
+  const session = await sessions.getSession(req.params.id);
+  if (!session) return res.status(404).json({ error: 'Oturum bulunamadı' });
+  if (!req.files || !req.files.length) return res.status(400).json({ error: 'En az bir görsel gerekli' });
+  session.jobs = session.jobs || [];
+  session.jobSeq = (session.jobSeq || 0) + 1;
+  const job = {
+    id: crypto.randomUUID(),
+    order: session.jobSeq,
+    status: 'queued',
+    pageCount: req.files.length,
+    pages: [],
+    tests: [],
+    error: '',
+    createdAt: new Date().toISOString(),
+  };
+  job.pages = await queue.saveJobImages(job.id, req.files);
+  session.jobs.push(job);
+  await sessions.saveSession(session);
+  broadcast('session', { sessionId: session.id, session });
+  queue.enqueue(session.id, job.id);
+  res.json({ job, session });
+}));
+
+app.post('/api/sessions/:id/jobs/:jobId/approve', wrap(async (req, res) => {
+  const session = await sessions.getSession(req.params.id);
+  if (!session) return res.status(404).json({ error: 'Oturum bulunamadı' });
+  const jobs = session.jobs || [];
+  const job = jobs.find((j) => j.id === req.params.jobId);
+  if (!job) return res.status(404).json({ error: 'İş bulunamadı' });
+  if (jobs.some((j) => j.order < job.order)) {
+    return res.status(409).json({ error: 'Önce sıradaki önceki testler onaylanmalı (sıra korunuyor)' });
+  }
+  const tpl = await readTemplate(session.templatePath);
+  const incoming = Array.isArray(req.body.tests) ? req.body.tests : [req.body];
+  const validated = [];
+  for (const body of incoming) {
+    const { errors, test } = validateTest(body, tpl);
+    if (errors) return res.status(400).json({ error: errors.join('. ') });
+    validated.push(test);
+  }
+  session.tests.push(...validated);
+  session.jobs = jobs.filter((j) => j.id !== job.id);
+  await sessions.saveSession(session);
+  await queue.deleteJobImages(job);
+  broadcast('session', { sessionId: session.id, session });
+  res.json(session);
+}));
+
+app.delete('/api/sessions/:id/jobs/:jobId', wrap(async (req, res) => {
+  const session = await sessions.getSession(req.params.id);
+  if (!session) return res.status(404).json({ error: 'Oturum bulunamadı' });
+  const job = (session.jobs || []).find((j) => j.id === req.params.jobId);
+  if (!job) return res.status(404).json({ error: 'İş bulunamadı' });
+  session.jobs = session.jobs.filter((j) => j.id !== job.id);
+  await sessions.saveSession(session);
+  await queue.deleteJobImages(job);
+  broadcast('session', { sessionId: session.id, session });
+  res.json(session);
+}));
+
+app.post('/api/sessions/:id/jobs/:jobId/retry', wrap(async (req, res) => {
+  const session = await sessions.getSession(req.params.id);
+  if (!session) return res.status(404).json({ error: 'Oturum bulunamadı' });
+  const job = (session.jobs || []).find((j) => j.id === req.params.jobId);
+  if (!job) return res.status(404).json({ error: 'İş bulunamadı' });
+  job.status = 'queued';
+  job.error = '';
+  await sessions.saveSession(session);
+  broadcast('session', { sessionId: session.id, session });
+  queue.enqueue(session.id, job.id);
+  res.json(session);
+}));
+
 app.post('/api/sessions/:id/complete', wrap(async (req, res) => {
   const session = await sessions.getSession(req.params.id);
   if (!session) return res.status(404).json({ error: 'Oturum bulunamadı' });
   const outPath = await generateExcel(session);
+  for (const job of session.jobs || []) await queue.deleteJobImages(job);
   await sessions.deleteSession(session.id);
   broadcast('sessions', { sessionId: session.id, removed: true });
   res.json({ ok: true, outPath });
 }));
 
 app.delete('/api/sessions/:id', wrap(async (req, res) => {
+  const existing = await sessions.getSession(req.params.id);
+  for (const job of (existing && existing.jobs) || []) await queue.deleteJobImages(job);
   const ok = await sessions.deleteSession(req.params.id);
   if (!ok) return res.status(404).json({ error: 'Oturum bulunamadı' });
   broadcast('sessions', { sessionId: req.params.id, removed: true });
@@ -223,6 +282,9 @@ app.use((err, req, res, next) => {
   console.error(err);
   res.status(500).json({ error: err.message || 'Sunucu hatası' });
 });
+
+queue.setOnChange((session) => broadcast('session', { sessionId: session.id, session }));
+queue.resumePending().catch((e) => console.error('[kuyruk] devam ettirme hatası', e));
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`edesis Excel Filler: http://localhost:${PORT}`);
