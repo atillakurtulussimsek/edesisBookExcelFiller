@@ -332,6 +332,7 @@ function updateCevapSayac() {
 $('cevaplar').addEventListener('input', (e) => {
   const clean = e.target.value.toUpperCase().replace(/[^ABCDE]/g, '');
   if (clean !== e.target.value) e.target.value = clean;
+  $('soruSayisi').value = clean.length || '';
   updateCevapSayac();
 });
 $('soruSayisi').addEventListener('input', updateCevapSayac);
