@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ScrollView, Text, TextInput, View } from 'react-native';
 import { api, loadLastTestTuru, saveLastTestTuru } from '../api';
 import { Button } from '../components/Button';
@@ -71,8 +71,12 @@ export function ReviewScreen({ detail, analyzed, onDone }: Props) {
   }
 
   const allDone = drafts.every((d) => d.status === 'done');
-  const konuItems = detail.konular.map(konuItem);
-  const turItems = detail.testTurleri.map((t) => ({ key: t.ad, title: t.ad }));
+  const konuItems = useMemo(() => detail.konular.map(konuItem), [detail.konular]);
+  const turItems = useMemo(() => detail.testTurleri.map((t) => ({ key: t.ad, title: t.ad })), [detail.testTurleri]);
+  const suggestionItems = useMemo(
+    () => (picker?.kind === 'konu' ? (drafts[picker.index]?.suggestions ?? []).map(konuItem) : []),
+    [picker, drafts],
+  );
 
   return (
     <View style={{ flex: 1 }}>
@@ -131,7 +135,7 @@ export function ReviewScreen({ detail, analyzed, onDone }: Props) {
         visible={picker !== null}
         title={picker?.kind === 'konu' ? 'Konu Seç' : 'Test Türü Seç'}
         items={picker?.kind === 'konu' ? konuItems : turItems}
-        suggestions={picker?.kind === 'konu' ? (drafts[picker.index]?.suggestions ?? []).map(konuItem) : []}
+        suggestions={suggestionItems}
         onClose={() => setPicker(null)}
         onSelect={(item) => {
           if (!picker) return;

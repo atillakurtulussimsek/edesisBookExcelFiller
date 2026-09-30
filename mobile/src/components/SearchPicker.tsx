@@ -14,16 +14,28 @@ type Props = {
   onClose: () => void;
 };
 
-const trLower = (v: string) => v.toLocaleLowerCase('tr');
+const trLower = (v: string) => v.replace(/İ/g, 'i').replace(/I/g, 'ı').toLowerCase();
 
 export function SearchPicker({ visible, title, items, suggestions = [], onSelect, onClose }: Props) {
   const [query, setQuery] = useState('');
 
+  const indexed = useMemo(
+    () => items.map((it) => ({ item: it, search: trLower(`${it.title} ${it.subtitle || ''}`) })),
+    [items],
+  );
+
   const data = useMemo(() => {
     const q = trLower(query.trim());
     if (!q) return suggestions.length ? suggestions : items.slice(0, 100);
-    return items.filter((it) => trLower(it.title).includes(q) || trLower(it.subtitle || '').includes(q)).slice(0, 100);
-  }, [query, items, suggestions]);
+    const out: PickerItem[] = [];
+    for (const e of indexed) {
+      if (e.search.includes(q)) {
+        out.push(e.item);
+        if (out.length >= 100) break;
+      }
+    }
+    return out;
+  }, [query, indexed, items, suggestions]);
 
   const showingSuggestions = !query.trim() && suggestions.length > 0;
 
