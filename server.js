@@ -9,7 +9,7 @@ const { writeExcel } = require('./lib/writer');
 const { analyzeImages } = require('./lib/analyze');
 const sessions = require('./lib/sessions');
 const queue = require('./lib/queue');
-const { suggestKonular } = require('./lib/konu');
+const { suggestKonular, matchTestTuru } = require('./lib/konu');
 const { validateTest } = require('./lib/validate');
 const crypto = require('crypto');
 
@@ -153,7 +153,7 @@ app.post('/api/sessions/:id/analyze', upload.array('images', 10), wrap(async (re
   const tpl = await readTemplate(session.templatePath);
   const tests = await analyzeImages(req.files);
   res.json({
-    tests: tests.map((t) => ({ ...t, konuOnerileri: suggestKonular(tpl.konular, t.konuAdi) })),
+    tests: tests.map((t) => ({ ...t, konuOnerileri: suggestKonular(tpl.konular, t.konuAdi), testTuruOneri: matchTestTuru(tpl.testTurleri, t.testTuru) })),
   });
 }));
 

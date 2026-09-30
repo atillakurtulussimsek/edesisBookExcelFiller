@@ -52,6 +52,8 @@ export type AnalyzedTest = {
   konuAdi: string;
   cevaplar: string;
   not: string;
+  testTuru?: string;
+  testTuruOneri?: string;
   guven?: number;
   puan?: number;
   konuSkor?: number;

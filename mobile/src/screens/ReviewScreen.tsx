@@ -31,7 +31,7 @@ export function ReviewScreen({ detail, job, onDone }: Props) {
       konu: t.konuOnerileri[0] ?? null,
       konuAdiKitap: t.konuAdi,
       testId: t.testNo === '' ? '' : String(t.testNo),
-      testTuru: '',
+      testTuru: t.testTuruOneri || '',
       cevaplar: t.cevaplar,
       not: t.not,
       suggestions: t.konuOnerileri,
