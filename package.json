@@ -30,5 +30,19 @@
   },
   "devDependencies": {
     "nodemon": "^3.1.14"
+  },
+  "nodemonConfig": {
+    "watch": [
+      "server.js",
+      "lib/"
+    ],
+    "ext": "js",
+    "ignore": [
+      "data/",
+      "output/",
+      "mobile/",
+      "samples/",
+      "public/"
+    ]
   }
 }
