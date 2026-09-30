@@ -52,6 +52,10 @@ app.get('/api/events', (req, res) => {
   req.on('close', () => { clearInterval(ping); sseClients.delete(res); });
 });
 
+function safeFileName(name) {
+  return name.replace(/[\\/:*?"<>|]/g, '_');
+}
+
 async function generateExcel(session) {
   await fs.mkdir(OUTPUT_DIR, { recursive: true });
   const base = safeFileName(session.sourceFileName.replace(/\.xlsx$/i, ''));
