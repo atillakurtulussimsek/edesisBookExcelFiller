@@ -1,6 +1,7 @@
 {
   "version": "0.0.1",
   "configurations": [
-    { "name": "edesis-filler", "runtimeExecutable": "npm", "runtimeArgs": ["start"], "port": 3000, "autoPort": true }
+    { "name": "edesis-filler", "runtimeExecutable": "npm", "runtimeArgs": ["start"], "port": 3000, "autoPort": true },
+    { "name": "mobile-web", "runtimeExecutable": "npx", "runtimeArgs": ["expo", "start", "--web", "--port", "8082"], "port": 8082, "cwd": "mobile" }
   ]
 }

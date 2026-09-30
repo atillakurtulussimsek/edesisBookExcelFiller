@@ -1,12 +1,14 @@
+import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
-import { Text, TextInput, View } from 'react-native';
+import { ScrollView, Text, View } from 'react-native';
 import { api, saveBaseUrl } from '../api';
 import { Button } from '../components/Button';
-import { s } from '../theme';
+import { Field, Notice, ScreenHeader } from '../components/ui';
+import { colors, s, type } from '../theme';
 
-type Props = { initialUrl: string; onConnected: () => void };
+type Props = { initialUrl: string; onConnected: () => void; onBack?: () => void };
 
-export function SettingsScreen({ initialUrl, onConnected }: Props) {
+export function SettingsScreen({ initialUrl, onConnected, onBack }: Props) {
   const [url, setUrl] = useState(initialUrl);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -26,21 +28,31 @@ export function SettingsScreen({ initialUrl, onConnected }: Props) {
   }
 
   return (
-    <View style={s.container}>
-      <View style={s.card}>
-        <Text style={s.h2}>Sunucu Adresi</Text>
-        <Text style={s.muted}>Bilgisayarda `npm start` çıktısındaki "Telefon için" adresini yaz. Telefon ve bilgisayar aynı Wi-Fi'da olmalı.</Text>
-        <TextInput
-          style={s.input}
-          value={url}
-          onChangeText={setUrl}
-          autoCapitalize="none"
-          autoCorrect={false}
-          keyboardType="url"
-          placeholder="http://192.168.1.10:3000"
-        />
-        {error ? <Text style={s.error}>{error}</Text> : null}
-        <Button title="Bağlan" kind="primary" onPress={connect} loading={busy} />
+    <View style={{ flex: 1 }}>
+      <ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
+        <ScreenHeader title="Sunucuya Bağlan" subtitle="Bilgisayardaki edesis Excel aracına bağlanır" onBack={onBack} />
+        <View style={s.card}>
+          <View style={[s.row, { gap: 12 }]}>
+            <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: colors.accentSoft, alignItems: 'center', justifyContent: 'center' }}>
+              <Ionicons name="laptop-outline" size={22} color={colors.accent} />
+            </View>
+            <Text style={[type.body, { flex: 1 }]}>Bilgisayarda çalışan sunucunun “Telefon için” adresini gir. Telefon ve bilgisayar aynı Wi‑Fi’da olmalı.</Text>
+          </View>
+          <Field
+            label="Sunucu adresi"
+            value={url}
+            onChangeText={setUrl}
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="url"
+            placeholder="http://192.168.1.10:3000"
+            onSubmitEditing={connect}
+          />
+          {error ? <Notice tone="error" text={error} /> : null}
+        </View>
+      </ScrollView>
+      <View style={s.bottomBar}>
+        <Button title="Bağlan" kind="primary" size="lg" icon="link-outline" onPress={connect} loading={busy} disabled={!url.trim()} />
       </View>
     </View>
   );

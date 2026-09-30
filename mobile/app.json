@@ -17,12 +17,13 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#2F6BFF",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.albaysimsek.edesiskitap"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -32,7 +33,8 @@
         "expo-image-picker",
         {
           "cameraPermission": "Kitap sayfalarının fotoğrafını çekmek için kamera gerekir.",
-          "photosPermission": "Kitap sayfası fotoğrafı seçmek için galeri gerekir."
+          "photosPermission": "Kitap sayfası fotoğrafı seçmek için galeri gerekir.",
+          "microphonePermission": false
         }
       ]
     ]
