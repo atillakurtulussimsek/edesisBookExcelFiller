@@ -45,7 +45,7 @@ export function SessionScreen({ id, onBack, onNewTest, reloadKey }: Props) {
     ]);
   }
 
-  const tests = detail?.session.tests ?? [];
+  const tests = (detail?.session.tests ?? []).map((t, index) => ({ t, index })).reverse();
 
   return (
     <View style={[s.container, { flex: 1 }]}>
@@ -58,10 +58,10 @@ export function SessionScreen({ id, onBack, onNewTest, reloadKey }: Props) {
       <Text style={s.h2}>Eklenen Testler ({tests.length})</Text>
       <FlatList
         data={tests}
-        keyExtractor={(_, i) => String(i)}
+        keyExtractor={(it) => String(it.index)}
         ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
         ListEmptyComponent={<Text style={s.muted}>Henüz test yok.</Text>}
-        renderItem={({ item, index }) => (
+        renderItem={({ item: { t: item, index } }) => (
           <View style={s.card}>
             <View style={s.row}>
               <Text style={{ fontWeight: '700', color: colors.text, flex: 1 }}>

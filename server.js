@@ -26,6 +26,21 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 const wrap = (fn) => (req, res, next) => fn(req, res, next).catch(next);
 
+const sseClients = new Set();
+function broadcast(type, payload) {
+  const data = `event: ${type}\ndata: ${JSON.stringify(payload)}\n\n`;
+  for (const client of sseClients) client.write(data);
+}
+
+app.get('/api/events', (req, res) => {
+  res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' });
+  res.flushHeaders();
+  res.write('event: hello\ndata: {}\n\n');
+  sseClients.add(res);
+  const ping = setInterval(() => res.write(': ping\n\n'), 25000);
+  req.on('close', () => { clearInterval(ping); sseClients.delete(res); });
+});
+
 function validateTest(body, tpl) {
   const errors = [];
   const konuKodu = Number(body.konuKodu);
@@ -90,7 +105,7 @@ app.get('/api/sessions', wrap(async (req, res) => {
 
 app.post('/api/sessions', upload.single('excel'), wrap(async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Excel dosyası gerekli' });
-  const tmpPath = path.join(__dirname, 'data', 'uploads', `tmp-${Date.now()}.xlsx`);
+  const tmpPath = path.join(process.env.DATA_DIR || path.join(__dirname, 'data'), 'uploads', `tmp-${Date.now()}.xlsx`);
   await fs.mkdir(path.dirname(tmpPath), { recursive: true });
   await fs.writeFile(tmpPath, req.file.buffer);
   let tpl;
@@ -103,6 +118,7 @@ app.post('/api/sessions', upload.single('excel'), wrap(async (req, res) => {
   await fs.rm(tmpPath, { force: true });
   const originalName = Buffer.from(req.file.originalname, 'latin1').toString('utf8');
   const session = await sessions.createSession(req.file.buffer, originalName, tpl.header);
+  broadcast('sessions', { sessionId: session.id });
   res.json(session);
 }));
 
@@ -121,6 +137,7 @@ app.post('/api/sessions/:id/tests', wrap(async (req, res) => {
   if (errors) return res.status(400).json({ error: errors.join('. ') });
   session.tests.push(test);
   await sessions.saveSession(session);
+  broadcast('session', { sessionId: session.id, session });
   res.json(session);
 }));
 
@@ -134,6 +151,7 @@ app.put('/api/sessions/:id/tests/:index', wrap(async (req, res) => {
   if (errors) return res.status(400).json({ error: errors.join('. ') });
   session.tests[i] = test;
   await sessions.saveSession(session);
+  broadcast('session', { sessionId: session.id, session });
   res.json(session);
 }));
 
@@ -144,6 +162,7 @@ app.delete('/api/sessions/:id/tests/:index', wrap(async (req, res) => {
   if (!session.tests[i]) return res.status(404).json({ error: 'Test bulunamadı' });
   session.tests.splice(i, 1);
   await sessions.saveSession(session);
+  broadcast('session', { sessionId: session.id, session });
   res.json(session);
 }));
 
@@ -155,6 +174,7 @@ app.post('/api/sessions/:id/tests/:index/move', wrap(async (req, res) => {
   if (!session.tests[i] || !session.tests[j]) return res.status(400).json({ error: 'Taşınamaz' });
   [session.tests[i], session.tests[j]] = [session.tests[j], session.tests[i]];
   await sessions.saveSession(session);
+  broadcast('session', { sessionId: session.id, session });
   res.json(session);
 }));
 
@@ -181,12 +201,14 @@ app.post('/api/sessions/:id/complete', wrap(async (req, res) => {
   if (!session) return res.status(404).json({ error: 'Oturum bulunamadı' });
   const outPath = await generateExcel(session);
   await sessions.deleteSession(session.id);
+  broadcast('sessions', { sessionId: session.id, removed: true });
   res.json({ ok: true, outPath });
 }));
 
 app.delete('/api/sessions/:id', wrap(async (req, res) => {
   const ok = await sessions.deleteSession(req.params.id);
   if (!ok) return res.status(404).json({ error: 'Oturum bulunamadı' });
+  broadcast('sessions', { sessionId: req.params.id, removed: true });
   res.json({ ok: true });
 }));
 

@@ -234,7 +234,7 @@ function renderTests() {
   $('testCount').textContent = `(${tests.length})`;
   const tbody = $('testTable').querySelector('tbody');
   tbody.innerHTML = '';
-  tests.forEach((t, i) => {
+  tests.map((t, i) => [t, i]).reverse().forEach(([t, i]) => {
     const tr = document.createElement('tr');
     if (i === state.editIndex) tr.className = 'editing';
     tr.innerHTML = `
@@ -247,8 +247,8 @@ function renderTests() {
       <td>${escapeHtml(t.testTuru)}</td>
       <td class="mono">${t.cevaplar}</td>
       <td><div class="btns">
-        <button class="small" data-act="up" data-i="${i}" ${i === 0 ? 'disabled' : ''}>↑</button>
-        <button class="small" data-act="down" data-i="${i}" ${i === tests.length - 1 ? 'disabled' : ''}>↓</button>
+        <button class="small" data-act="down" data-i="${i}" ${i === tests.length - 1 ? 'disabled' : ''} title="Yukarı taşı">↑</button>
+        <button class="small" data-act="up" data-i="${i}" ${i === 0 ? 'disabled' : ''} title="Aşağı taşı">↓</button>
         <button class="small" data-act="edit" data-i="${i}">Düzenle</button>
         <button class="small danger" data-act="del" data-i="${i}">Sil</button>
       </div></td>`;
@@ -387,6 +387,23 @@ $('completeBtn').addEventListener('click', async () => {
     alert(`Excel üretildi:\n${r.outPath}`);
     location.hash = '';
   } catch (err) { toast(err.message, true); }
+});
+
+/* ---------- canlı güncelleme (SSE) ---------- */
+
+const events = new EventSource('/api/events');
+events.addEventListener('session', (e) => {
+  const { sessionId, session } = JSON.parse(e.data);
+  if (state.session && state.session.id === sessionId) {
+    state.session = session;
+    if (state.editIndex !== null && !session.tests[state.editIndex]) resetForm(true);
+    renderTests();
+  }
+});
+events.addEventListener('sessions', (e) => {
+  const { sessionId, removed } = JSON.parse(e.data);
+  if (!state.session) loadHome();
+  else if (removed && state.session.id === sessionId) { toast('Bu oturum kapatıldı'); location.hash = ''; }
 });
 
 /* ---------- yönlendirme ---------- */
