@@ -27,7 +27,10 @@ export async function saveLastTestTuru(ad: string): Promise<void> {
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (!baseUrl) throw new Error('Sunucu adresi ayarlanmamış');
+  const t0 = Date.now();
+  console.log(`[api] ${init?.method || 'GET'} ${path}`);
   const res = await fetch(`${baseUrl}${path}`, init);
+  console.log(`[api] ${init?.method || 'GET'} ${path} -> ${res.status} (${Date.now() - t0} ms)`);
   const text = await res.text();
   let body: any = null;
   try {

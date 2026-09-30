@@ -14,6 +14,13 @@ const OUTPUT_DIR = path.join(__dirname, 'output');
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
 
 const app = express();
+app.use((req, res, next) => {
+  const started = Date.now();
+  res.on('finish', () => {
+    if (req.path.startsWith('/api')) console.log(`[${req.method}] ${req.path} -> ${res.statusCode} (${Date.now() - started} ms)`);
+  });
+  next();
+});
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 

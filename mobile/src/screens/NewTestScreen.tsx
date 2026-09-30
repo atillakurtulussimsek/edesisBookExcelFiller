@@ -29,7 +29,9 @@ export function NewTestScreen({ detail, onBack, onAnalyzed }: Props) {
     const opts: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], quality: 1, allowsMultipleSelection: !fromCamera };
     const result = fromCamera ? await ImagePicker.launchCameraAsync(opts) : await ImagePicker.launchImageLibraryAsync(opts);
     if (result.canceled || !result.assets?.length) return;
+    const t0 = Date.now();
     const shrunk = await Promise.all(result.assets.map((a) => shrink(a.uri)));
+    console.log(`[foto] ${result.assets.length} sayfa küçültüldü (${Date.now() - t0} ms)`);
     setPages((p) => [...p, ...shrunk].slice(0, 10));
   }
 
@@ -47,14 +49,18 @@ export function NewTestScreen({ detail, onBack, onAnalyzed }: Props) {
     if (!pages.length) return;
     setAnalyzing(true);
     setError('');
+    const t0 = Date.now();
+    console.log(`[analiz] ${pages.length} sayfa gönderiliyor…`);
     try {
       const { tests } = await api.analyze(detail.session.id, pages);
+      console.log(`[analiz] yanıt geldi: ${tests.length} test (${Date.now() - t0} ms)`, JSON.stringify(tests));
       if (!tests.length) {
         Alert.alert('Test bulunamadı', 'Sayfalarda okunabilir test bilgisi bulunamadı.');
         return;
       }
       onAnalyzed(tests);
     } catch (e: any) {
+      console.log(`[analiz] HATA (${Date.now() - t0} ms):`, e.message);
       setError(e.message);
     } finally {
       setAnalyzing(false);
