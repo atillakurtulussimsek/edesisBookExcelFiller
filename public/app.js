@@ -39,7 +39,7 @@ function fmtDate(iso) {
 
 /* ---------- combobox ---------- */
 
-function setupCombo(comboId, { getItems, render, onSelect, hiddenId, filter }) {
+function setupCombo(comboId, { getItems, render, onSelect, hiddenId, filter, next }) {
   const combo = $(comboId);
   const input = combo.querySelector('input[type=text]');
   const hidden = $(hiddenId);
@@ -83,18 +83,17 @@ function setupCombo(comboId, { getItems, render, onSelect, hiddenId, filter }) {
   }
 
   input.addEventListener('input', () => { hidden.value = ''; open(); });
-  input.addEventListener('focus', open);
+  input.addEventListener('focus', () => { input.select(); open(); });
   input.addEventListener('blur', () => setTimeout(close, 120));
   input.addEventListener('keydown', (e) => {
     if (list.hidden && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) { open(); return; }
     if (e.key === 'ArrowDown') { e.preventDefault(); active = Math.min(active + 1, current.length - 1); highlight(); }
     else if (e.key === 'ArrowUp') { e.preventDefault(); active = Math.max(active - 1, 0); highlight(); }
     else if (e.key === 'Enter') {
-      if (!list.hidden) {
-        e.preventDefault();
-        if (active >= 0) choose(active);
-        else if (current.length === 1) choose(0);
-      }
+      e.preventDefault();
+      if (!list.hidden && active >= 0) choose(active);
+      else if (!list.hidden && current.length === 1) choose(0);
+      else if (hidden.value) { close(); if (next) next(); }
     } else if (e.key === 'Escape') close();
   });
 
@@ -115,6 +114,7 @@ const konuCombo = setupCombo('konuCombo', {
     $('konuInfo').textContent = `${k.sinif} · ${k.ders}`;
     $('konuAdiKitap').focus();
   },
+  next: () => $('konuAdiKitap').focus(),
 });
 
 setupCombo('turCombo', {
@@ -127,6 +127,7 @@ setupCombo('turCombo', {
     hidden.value = t.ad;
     $('cevaplar').focus();
   },
+  next: () => $('cevaplar').focus(),
 });
 
 function escapeHtml(s) {
