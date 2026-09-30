@@ -2,6 +2,7 @@ import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, SafeAreaView } from 'react-native';
 import { loadBaseUrl } from './src/api';
+import { NewTestScreen } from './src/screens/NewTestScreen';
 import { ReviewScreen } from './src/screens/ReviewScreen';
 import { SessionScreen } from './src/screens/SessionScreen';
 import { SessionsScreen } from './src/screens/SessionsScreen';
@@ -14,6 +15,7 @@ type Route =
   | { name: 'settings' }
   | { name: 'sessions' }
   | { name: 'session'; id: string; reloadKey: number }
+  | { name: 'newTest'; id: string; detail: SessionDetail; reloadKey: number }
   | { name: 'review'; id: string; detail: SessionDetail; analyzed: AnalyzedTest[]; reloadKey: number };
 
 export default function App() {
@@ -49,7 +51,16 @@ export default function App() {
           id={route.id}
           reloadKey={route.reloadKey}
           onBack={() => setRoute({ name: 'sessions' })}
-          onAnalyzed={(detail, analyzed) => setRoute({ name: 'review', id: route.id, detail, analyzed, reloadKey: route.reloadKey })}
+          onNewTest={(detail) => setRoute({ name: 'newTest', id: route.id, detail, reloadKey: route.reloadKey })}
+        />
+      );
+      break;
+    case 'newTest':
+      screen = (
+        <NewTestScreen
+          detail={route.detail}
+          onBack={() => setRoute({ name: 'session', id: route.id, reloadKey: route.reloadKey })}
+          onAnalyzed={(analyzed) => setRoute({ name: 'review', id: route.id, detail: route.detail, analyzed, reloadKey: route.reloadKey })}
         />
       );
       break;

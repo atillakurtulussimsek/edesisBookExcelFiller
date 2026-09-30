@@ -6,7 +6,7 @@ const path = require('path');
 const fs = require('fs/promises');
 const { readTemplate } = require('./lib/template');
 const { writeExcel } = require('./lib/writer');
-const { analyzeImage } = require('./lib/analyze');
+const { analyzeImages } = require('./lib/analyze');
 const sessions = require('./lib/sessions');
 
 const PORT = process.env.PORT || 3000;
@@ -158,12 +158,12 @@ app.get('/api/sessions/:id/excel', wrap(async (req, res) => {
   res.download(outPath, path.basename(outPath));
 }));
 
-app.post('/api/sessions/:id/analyze', upload.single('image'), wrap(async (req, res) => {
+app.post('/api/sessions/:id/analyze', upload.array('images', 10), wrap(async (req, res) => {
   const session = await sessions.getSession(req.params.id);
   if (!session) return res.status(404).json({ error: 'Oturum bulunamadı' });
-  if (!req.file) return res.status(400).json({ error: 'Görsel gerekli' });
+  if (!req.files || !req.files.length) return res.status(400).json({ error: 'En az bir görsel gerekli' });
   const tpl = await readTemplate(session.templatePath);
-  const tests = await analyzeImage(req.file.buffer, req.file.mimetype);
+  const tests = await analyzeImages(req.files);
   res.json({
     tests: tests.map((t) => ({ ...t, konuOnerileri: suggestKonular(tpl.konular, t.konuAdi) })),
   });

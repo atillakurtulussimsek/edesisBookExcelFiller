@@ -49,9 +49,9 @@ export const api = {
   getSession: (id: string) => request<SessionDetail>(`/api/sessions/${id}`),
   addTest: (id: string, payload: TestPayload) => request<Session>(`/api/sessions/${id}/tests`, json('POST', payload)),
   deleteTest: (id: string, index: number) => request<Session>(`/api/sessions/${id}/tests/${index}`, { method: 'DELETE' }),
-  analyze: async (id: string, uri: string, mimeType: string): Promise<{ tests: AnalyzedTest[] }> => {
+  analyze: async (id: string, uris: string[]): Promise<{ tests: AnalyzedTest[] }> => {
     const form = new FormData();
-    form.append('image', new File(uri), 'sayfa.jpg');
+    uris.forEach((uri, i) => form.append('images', new File(uri), `sayfa-${i + 1}.jpg`));
     return request(`/api/sessions/${id}/analyze`, { method: 'POST', body: form });
   },
 };
