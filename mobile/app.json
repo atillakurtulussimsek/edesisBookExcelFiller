@@ -36,6 +36,15 @@
           "photosPermission": "Kitap sayfası fotoğrafı seçmek için galeri gerekir.",
           "microphonePermission": false
         }
+      ],
+      "expo-build-properties",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
       ]
     ]
   }
