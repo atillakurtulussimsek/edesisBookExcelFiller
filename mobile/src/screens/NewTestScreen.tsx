@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
+import DocumentScanner, { ResponseType } from 'react-native-document-scanner-plugin';
 import React, { useState } from 'react';
 import { Alert, Image, Pressable, ScrollView, Text, View } from 'react-native';
 import { api } from '../api';
@@ -23,6 +24,28 @@ export function NewTestScreen({ detail, onBack, onSubmitted }: Props) {
   const [error, setError] = useState('');
   const [sentCount, setSentCount] = useState(0);
   const [jobs, setJobs] = useState<Job[]>(detail.session.jobs ?? []);
+
+  // Tarayıcı: sayfa kenarlarını otomatik bulur, kırpar ve düzleştirir (Adobe Scan / Drive gibi)
+  async function scan() {
+    const remaining = MAX_PAGES - pages.length;
+    if (remaining <= 0) return;
+    try {
+      const { scannedImages, status } = await DocumentScanner.scanDocument({
+        maxNumDocuments: remaining,
+        croppedImageQuality: 85,
+        responseType: ResponseType.ImageFilePath,
+      });
+      if (status !== 'success' || !scannedImages?.length) return;
+      const uris = scannedImages.map((u) => (u.startsWith('file://') || u.startsWith('content://') ? u : `file://${u}`));
+      const t0 = Date.now();
+      const shrunk = await Promise.all(uris.map((u) => shrink(u)));
+      console.log(`[tara] ${uris.length} sayfa tarandı ve küçültüldü (${Date.now() - t0} ms)`);
+      setPages((p) => [...p, ...shrunk].slice(0, MAX_PAGES));
+    } catch (e: any) {
+      console.log('[tara] tarayıcı açılamadı, kameraya düşülüyor:', e?.message);
+      await pick(true);
+    }
+  }
 
   async function pick(fromCamera: boolean) {
     const perm = fromCamera
@@ -80,7 +103,7 @@ export function NewTestScreen({ detail, onBack, onSubmitted }: Props) {
         <View style={{ marginHorizontal: -20 }}>
           <ScreenHeader
             title="Yeni Test"
-            subtitle="Sayfaları çek, gönder, sıradaki teste geç. Analiz arka planda yapılır."
+            subtitle="Sayfaları tara (kenarlar otomatik kırpılır), gönder, sıradaki teste geç."
             onBack={() => onSubmitted(jobs)}
             right={
               jobs.length ? (
@@ -96,7 +119,8 @@ export function NewTestScreen({ detail, onBack, onSubmitted }: Props) {
         {sentCount ? <Notice tone="success" text={`${sentCount} test analize gönderildi. Sıradaki testin sayfalarını çekebilirsin.`} /> : null}
 
         <View style={[s.row, { gap: 12 }]}>
-          <Button title="Sayfa Çek" kind="primary" icon="camera" onPress={() => pick(true)} disabled={!canAdd} style={{ flex: 1 }} />
+          <Button title="Sayfa Tara" kind="primary" icon="scan" onPress={scan} disabled={!canAdd} style={{ flex: 1 }} />
+          <Button title="Kamera" kind="secondary" icon="camera-outline" onPress={() => pick(true)} disabled={!canAdd} />
           <Button title="Galeri" kind="secondary" icon="images-outline" onPress={() => pick(false)} disabled={!canAdd} />
         </View>
 
@@ -120,7 +144,7 @@ export function NewTestScreen({ detail, onBack, onSubmitted }: Props) {
             </View>
           ))}
           {canAdd ? (
-            <Pressable onPress={() => pick(true)} style={({ pressed }) => [{ width: '30%', aspectRatio: 3 / 4, borderRadius: 14, borderWidth: 1.5, borderStyle: 'dashed', borderColor: colors.accentBorder, backgroundColor: colors.accentSoft, alignItems: 'center', justifyContent: 'center', gap: 4 }, pressed && { opacity: 0.7 }]}>
+            <Pressable onPress={scan} style={({ pressed }) => [{ width: '30%', aspectRatio: 3 / 4, borderRadius: 14, borderWidth: 1.5, borderStyle: 'dashed', borderColor: colors.accentBorder, backgroundColor: colors.accentSoft, alignItems: 'center', justifyContent: 'center', gap: 4 }, pressed && { opacity: 0.7 }]}>
               <Ionicons name="add" size={28} color={colors.accent} />
               <Text style={{ color: colors.accent, fontSize: 13, fontWeight: '700' }}>Sayfa ekle</Text>
             </Pressable>

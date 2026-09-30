@@ -45,6 +45,13 @@
             "usesCleartextTraffic": true
           }
         }
+      ],
+      "react-native-document-scanner-plugin",
+      [
+        "react-native-document-scanner-plugin",
+        {
+          "cameraPermission": "Kitap sayfalarını taramak için kamera gerekir."
+        }
       ]
     ]
   }
