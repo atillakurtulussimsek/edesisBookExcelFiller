@@ -1,3 +1,4 @@
+import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useState } from 'react';
 import { Alert, Image, Pressable, ScrollView, Text, View } from 'react-native';
@@ -25,10 +26,17 @@ export function NewTestScreen({ detail, onBack, onAnalyzed }: Props) {
       Alert.alert('İzin gerekli', fromCamera ? 'Kamera izni verilmedi' : 'Galeri izni verilmedi');
       return;
     }
-    const opts: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], quality: 0.7, allowsMultipleSelection: !fromCamera };
+    const opts: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], quality: 1, allowsMultipleSelection: !fromCamera };
     const result = fromCamera ? await ImagePicker.launchCameraAsync(opts) : await ImagePicker.launchImageLibraryAsync(opts);
     if (result.canceled || !result.assets?.length) return;
-    setPages((p) => [...p, ...result.assets.map((a) => a.uri)].slice(0, 10));
+    const shrunk = await Promise.all(result.assets.map((a) => shrink(a.uri)));
+    setPages((p) => [...p, ...shrunk].slice(0, 10));
+  }
+
+  async function shrink(uri: string): Promise<string> {
+    const rendered = await ImageManipulator.manipulate(uri).resize({ width: 1400 }).renderAsync();
+    const saved = await rendered.saveAsync({ format: SaveFormat.JPEG, compress: 0.6 });
+    return saved.uri;
   }
 
   function removePage(i: number) {
