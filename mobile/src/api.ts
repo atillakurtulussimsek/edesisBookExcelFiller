@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { File } from 'expo-file-system';
 import type { AnalyzedTest, Session, SessionDetail, SessionSummary, TestPayload } from './types';
 
 const BASE_URL_KEY = 'serverBaseUrl';
@@ -50,7 +51,7 @@ export const api = {
   deleteTest: (id: string, index: number) => request<Session>(`/api/sessions/${id}/tests/${index}`, { method: 'DELETE' }),
   analyze: async (id: string, uri: string, mimeType: string): Promise<{ tests: AnalyzedTest[] }> => {
     const form = new FormData();
-    form.append('image', { uri, name: 'sayfa.jpg', type: mimeType || 'image/jpeg' } as any);
+    form.append('image', new File(uri), 'sayfa.jpg');
     return request(`/api/sessions/${id}/analyze`, { method: 'POST', body: form });
   },
 };
