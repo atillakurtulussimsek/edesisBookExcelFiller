@@ -6,7 +6,7 @@ edesis kitap yükleme Excel şablonunu form üzerinden dolduran lokal Node.js ar
 
 ```bash
 npm install
-npm start
+npm start        # ya da: npm run dev (kod değişince otomatik yeniden başlar)
 ```
 
 Tarayıcı: http://localhost:3000
