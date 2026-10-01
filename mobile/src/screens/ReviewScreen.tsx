@@ -4,7 +4,8 @@ import { ScrollView, Text, View } from 'react-native';
 import { api, loadLastTestTuru, saveLastTestTuru } from '../api';
 import { Button } from '../components/Button';
 import { PickerItem, SearchPicker } from '../components/SearchPicker';
-import { AnswerGrid, Chip, Field, Notice, ScreenHeader, SelectField } from '../components/ui';
+import { AnswerEntry } from '../components/AnswerEntry';
+import { Chip, Field, Notice, ScreenHeader, SelectField } from '../components/ui';
 import { colors, s, type } from '../theme';
 import type { Job, Konu, SessionDetail } from '../types';
 
@@ -13,7 +14,8 @@ type Draft = {
   konuAdiKitap: string;
   testId: string;
   testTuru: string;
-  cevaplar: string;
+  answers: string[];
+  okunan: string;
   not: string;
   suggestions: Konu[];
   status: 'pending' | 'saving' | 'done' | 'error';
@@ -32,7 +34,8 @@ export function ReviewScreen({ detail, job, onDone }: Props) {
       konuAdiKitap: t.konuAdi,
       testId: t.testNo === '' ? '' : String(t.testNo),
       testTuru: t.testTuruOneri || '',
-      cevaplar: t.cevaplar,
+      answers: [''],
+      okunan: t.cevaplar,
       not: t.not,
       suggestions: t.konuOnerileri,
       status: 'pending',
@@ -57,7 +60,9 @@ export function ReviewScreen({ detail, job, onDone }: Props) {
   async function approveAll() {
     let ok = true;
     setDrafts((ds) => ds.map((d) => {
-      const err = !d.konu ? 'Konu seçilmeli' : !d.testTuru ? 'Test türü seçilmeli' : !d.cevaplar ? 'Cevap anahtarı boş' : '';
+      const cevaplar = d.answers.filter(Boolean).join('');
+      const bosOrta = d.answers.slice(0, -1).some((a) => !a);
+      const err = !d.konu ? 'Konu seçilmeli' : !d.testTuru ? 'Test türü seçilmeli' : !cevaplar ? 'Cevap anahtarı girilmeli' : bosOrta ? 'Boş bırakılan soru var' : '';
       if (err) ok = false;
       return { ...d, error: err };
     }));
@@ -68,14 +73,17 @@ export function ReviewScreen({ detail, job, onDone }: Props) {
       await api.approveJob(
         detail.session.id,
         job.id,
-        drafts.map((d) => ({
-          konuKodu: d.konu!.kod,
-          konuAdiKitap: d.konuAdiKitap,
-          testId: d.testId === '' ? '' : Number(d.testId),
-          soruSayisi: d.cevaplar.length,
-          testTuru: d.testTuru,
-          cevaplar: d.cevaplar,
-        })),
+        drafts.map((d) => {
+          const cevaplar = d.answers.filter(Boolean).join('');
+          return {
+            konuKodu: d.konu!.kod,
+            konuAdiKitap: d.konuAdiKitap,
+            testId: d.testId === '' ? '' : Number(d.testId),
+            soruSayisi: cevaplar.length,
+            testTuru: d.testTuru,
+            cevaplar,
+          };
+        }),
       );
       if (drafts[0]?.testTuru) await saveLastTestTuru(drafts[0].testTuru);
       setDrafts((ds) => ds.map((d) => ({ ...d, status: 'done' })));
@@ -100,7 +108,7 @@ export function ReviewScreen({ detail, job, onDone }: Props) {
         <View style={{ marginHorizontal: -20 }}>
           <ScreenHeader
             title={`${job.order}. Gönderim`}
-            subtitle={drafts.length === 1 ? 'Okunan testi kontrol et, gerekirse düzelt, onayla' : `${drafts.length} test okundu; kontrol et ve onayla`}
+            subtitle={drafts.length === 1 ? 'Konu ve türü kontrol et, cevap anahtarını gir, onayla' : `${drafts.length} test okundu; cevapları gir ve onayla`}
             onBack={onDone}
           />
         </View>
@@ -111,11 +119,8 @@ export function ReviewScreen({ detail, job, onDone }: Props) {
             <View key={i} style={[s.card, done && { opacity: 0.6 }]}>
               <View style={[s.row, { justifyContent: 'space-between' }]}>
                 <Text style={type.heading}>{drafts.length > 1 ? `${i + 1}. Test` : 'Test bilgileri'}</Text>
-                {done ? <Chip text="Eklendi" tone="success" icon="checkmark" /> : <Chip text={`${d.cevaplar.length} soru`} tone="accent" />}
+                {done ? <Chip text="Eklendi" tone="success" icon="checkmark" /> : <Chip text={`${d.answers.filter(Boolean).length} soru`} tone="accent" />}
               </View>
-              {analyzed[i]?.puan !== undefined ? (
-                <Notice tone={(analyzed[i].puan ?? 0) >= 90 ? 'success' : 'warn'} text={`Doğruluk puanı %${analyzed[i].puan}${analyzed[i].nedenler?.length ? ` · ${analyzed[i].nedenler!.join(', ')}` : ''}`} />
-              ) : null}
               {d.not ? <Notice tone="warn" text={d.not} /> : null}
 
               <SelectField
@@ -135,17 +140,13 @@ export function ReviewScreen({ detail, job, onDone }: Props) {
                 </View>
               </View>
 
-              <Field
-                label="Cevap anahtarı"
-                value={d.cevaplar}
-                autoCapitalize="characters"
-                autoCorrect={false}
-                onChangeText={(v) => update(i, { cevaplar: v.toUpperCase().replace(/[^ABCDE]/g, '') })}
-                editable={!done}
-                placeholder="ABCDE…"
-                style={type.mono}
-              />
-              {d.cevaplar ? <AnswerGrid answers={d.cevaplar} /> : null}
+              <AnswerEntry answers={d.answers} onChange={(answers) => update(i, { answers })} disabled={done} />
+              {d.okunan ? (
+                <View style={[s.row, { justifyContent: 'space-between' }]}>
+                  <Text style={[type.caption, { flex: 1 }]}>Yapay zeka okuması: <Text style={type.mono}>{d.okunan}</Text> ({d.okunan.length})</Text>
+                  {!done ? <Button title="Okumayı al" size="sm" kind="ghost" onPress={() => update(i, { answers: [...d.okunan.split(''), ''] })} /> : null}
+                </View>
+              ) : null}
 
               {d.error ? <Notice tone="error" text={d.error} /> : null}
             </View>

@@ -1,7 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
-import DocumentScanner, { ResponseType } from 'react-native-document-scanner-plugin';
 import React, { useState } from 'react';
 import { Alert, Image, Pressable, ScrollView, Text, View } from 'react-native';
 import { api } from '../api';
@@ -30,13 +29,15 @@ export function NewTestScreen({ detail, onBack, onSubmitted }: Props) {
     const remaining = MAX_PAGES - pages.length;
     if (remaining <= 0) return;
     try {
+      // Yerel modül; Expo Go'da yoktur → catch ile kameraya düşer
+      const { default: DocumentScanner, ResponseType } = require('react-native-document-scanner-plugin');
       const { scannedImages, status } = await DocumentScanner.scanDocument({
         maxNumDocuments: remaining,
         croppedImageQuality: 85,
         responseType: ResponseType.ImageFilePath,
       });
       if (status !== 'success' || !scannedImages?.length) return;
-      const uris = scannedImages.map((u) => (u.startsWith('file://') || u.startsWith('content://') ? u : `file://${u}`));
+      const uris = (scannedImages as string[]).map((u) => (u.startsWith('file://') || u.startsWith('content://') ? u : `file://${u}`));
       const t0 = Date.now();
       const shrunk = await Promise.all(uris.map((u) => shrink(u)));
       console.log(`[tara] ${uris.length} sayfa tarandı ve küçültüldü (${Date.now() - t0} ms)`);
